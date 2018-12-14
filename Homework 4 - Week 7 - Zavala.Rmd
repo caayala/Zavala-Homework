@@ -5,31 +5,57 @@ output: html_notebook
 
 setwd("~/Documents/HU - 3rd Semester/Advanced Statistics/Data Bases")
 
+# Instrucciones de tarea
+
+Load the dataset penguins_2.csv into R. These are the same data on diving penguins as used in the class notes and the practical demonstration, but with an added variable to mark which of several penguins each measurement came from.
+
+In this homework exercise, we are interested in the consistency of the relationship between *dive duration* and *dive depth* across different penguins. The relationship between dive duration and dive depth is probably approximately linear. But how much do penguins differ in the steepness of this relationship? And how much do they differ in the depths of their dives in general?
+
+Estimate the *variability* of these two features of *diving behavior* in penguins. Don’t worry about inference for the moment. Just try to get an estimate using whatever method you think best, and explain briefly why you chose this method.
+
+Make sure that your solution takes the form of a complete R script that when run prints one or more plots that illustrate the data and your conclusions, and any statistical output that gives your estimates.
+
+
 ```{r}
 #Load the data set
 library(readr)
+library(ggplot2)
+
 peng <- read_csv("penguins_2.csv")
-peng= penguins_2
+
+head(peng)
 ```
 
 
 ```{r}
 #Check on the (apparent) linear regression btw dive duration and dive depth 
-
-model = lm(Depth ~ Duration, peng)
+model = lm(Depth ~ Duration + factor(Bird), peng)
 summary(model)
+```
 
-library(ggplot2)
-peng_plot = ggplot(peng, aes(y=Depth, x=Duration)) +
+
+```{r}
+peng_plot = ggplot(peng, aes(y=Depth, x=Duration, colour = Bird)) +
   geom_point() +
+  geom_smooth(aes(group = 1), method = lm) + 
   labs(y='Depth (mts)', x='Dive duration (mins)')
 
-print(peng_plot + geom_smooth(method=lm))
+peng_plot
+```
+
+```{r}
+peng_plot = ggplot(peng, aes(y=Depth, x=Duration)) +
+  geom_point() +
+  geom_smooth(method = lm) + 
+  facet_wrap(vars(Bird)) + 
+  labs(y='Depth (mts)', 
+       x='Dive duration (mins)')
+
+peng_plot
 ```
 
 ```{r}
 #Checking the residuals to see better the relationship
-
 model1 = lm(Depth ~ Duration, peng)
 peng$Residual = residuals(model1)
 
@@ -37,105 +63,123 @@ residual_plot = peng_plot +
   aes(y=Residual) +
   geom_hline(yintercept=0, lty='dashed')
 
-print(residual_plot %+% peng)
+residual_plot %+% peng
 ```
 
 ```{r}
 #trying with some polynomial analysis, including an additional predictor that catches some curved function of our basic predict. We will try squaring the dive duration (model degree 2, including "two durations")
 
 model2 = lm(Depth ~ Duration + I(Duration^2), peng)
+
 summary(model2)
 ```
 
 ```{r}
 #trying with polynomial functions in higher degrees
 
-model2 = lm(Depth ~ poly(Duration,degree=3), peng)
-summary(model2)
+model3 = lm(Depth ~ poly(Duration, degree=3), peng)
+
+summary(model3)
 ```
 
 ```{r}
-model3b = lm(Depth ~ Duration+I(Duration^2)+I(Duration^3), peng)
+model3b = lm(Depth ~ Duration + I(Duration^2) + I(Duration^3), peng)
+
 summary(model3b)
 ```
 
 ```{r}
 peng_plot_models = peng_plot +
-  geom_smooth(method=lm, se=FALSE) +
-  geom_smooth(method=lm, formula=y~poly(x,degree=2), se=FALSE, color='red') +
-  geom_smooth(method=lm, formula=y~poly(x,degree=3), se=FALSE, color='green')
+  geom_smooth(aes(group = 1), method=lm, se = FALSE) +
+  geom_smooth(aes(group = 1), method=lm, formula = y ~ poly(x, degree=2), se=FALSE, color='red') +
+  geom_smooth(aes(group = 1), method=lm, formula = y ~ poly(x, degree=3), se=FALSE, color='green')
 
-print(peng_plot_models)
+peng_plot_models
 ```
 
 ```{r}
-#Linear Mixed Effects using Hierarchical structure
-#We are interested in estimating the linear relationship btw dive depth and dive duration among the different types of peguins (assuming that the types of birds could be a hierarchical structure)
+# Linear Mixed Effects using Hierarchical structure
+
+# We are interested in estimating the linear relationship btw dive depth and dive duration among the different types of peguins (assuming that the types of birds could be a hierarchical structure)
 table(peng$Bird)
-head(peng)
 ```
 
 ```{r}
-#Plotting the data with jitter points to improve the visualization of the multiple points being plotted
+# Plotting the data with jitter points to improve the visualization of the multiple points being plotted
 
 fig1 = ggplot(peng, aes(y=Depth, x=Duration)) +
-  geom_point(shape='circle filled', fill='grey', position=position_jitter())
+  geom_point(shape='circle filled', fill='grey', 
+             position=position_jitter())
 
-fig2 = fig1 + facet_wrap(~Bird, labeller=label_both)
-
-print(fig2)
-
+fig1
 ```
 
 ```{r}
-#1 First way of estimate the linear model using such data, ignoring the hierarchical structure: Lumping
+fig2 <- fig1 +
+  facet_wrap(~ Bird, 
+             labeller=label_both)
 
-print(fig1 + geom_smooth(method=lm, se=FALSE))
+fig2 + 
+  geom_smooth(method=lm, se=FALSE)
+```
+
+1. First way of estimate the linear model using such data, ignoring the hierarchical structure: Lumping
+
+```{r}
 lump_model = lm(Depth ~ Duration, peng)
+
 print(lump_model)
+```
+
+```{r}
 summary(lump_model)
-
-#given that both groups share a common trend (dive behavior) but differ from one another a lot on average, then lumping is not very appropiate for our analysis.
 ```
 
-```{r}
-#2. Ignoring hierarchical structure using parameter averaging: estimating our model completely separate for each group: estimates for each group without generalization to the others #hay algo que no me resulta en el average model
-print(fig2 + geom_smooth(method=lm, se=FALSE))
+Given that both groups share a common trend (dive behavior) but differ from one another a lot on average, then lumping is not very appropiate for our analysis.
 
+2. Ignoring hierarchical structure using parameter averaging: estimating our model completely separate for each group: estimates for each group without generalization to the others #hay algo que no me resulta en el average model
+
+```{r}
+fig2 + geom_smooth(method=lm, se=FALSE)
 ```
 
+3. Mixed effects: to acknowledge the influence within every group (types of penguin birds) and the overall trend that all groups have in common estimation directly using the scaling. Still we get the singular fit warning
+
 ```{r}
-#3. Mixed effects: to acknowledge the influence within every group (types of penguin birds) and the overall trend that all groups have in common
-##estimation directly using the scaling. Still we get the singular fit warning
 library(lme4)
 model_lme = lmer(Depth ~ scale(Duration) + (scale(Duration)|Bird), peng)
+
 summary(model_lme)
 ```
 
+Eventhough there is a strong positive correlaton btw the random intercepts and random slopes, we are going to simplify the model in order to make it possible to estimate --> estimation of uncorrelated random effects
+
 ```{r}
-#Eventhough there is a strong positive correlaton btw the random intercepts and random slopes, we are going to simplify the model in order to make it possible to estimate --> estimation of uncorrelated random effects
-
 model_uncorrelated = lmer(Depth ~ scale(Duration) + (scale(Duration)||Bird), peng)
-summary(model_uncorrelated)
-#We see thet there is not much difference to the fit of the model or to the estimates of the fixed effects. 
 
+summary(model_uncorrelated)
 ```
 
+We see thet there is not much difference to the fit of the model or to the estimates of the fixed effects. 
+
+# Visualization
+
 ```{r}
-#Visualization
 peng$Predicted = predict(model_lme)
+
 fig2 = fig2 %+% peng
+
 fig3 = fig2 +
   geom_line(aes(y=Predicted))
 
-print(fig3)
-
+fig3
 ```
 
-```{r}
-#shrinkage to see the diff btw the mixed effects mode and separate model for each group
+shrinkage to see the diff btw the mixed effects mode and separate model for each group
 
-model_separate = lm(Depth ~ Duration*Bird, peng)
+```{r}
+model_separate = lm(Depth ~ Duration * Bird, peng)
+
 peng$Predicted_fixed = predict(model_lme, re.form=~0)
 peng$Predicted_separate = predict(model_separate)
 
@@ -144,13 +188,10 @@ fig4 = fig2 %+% peng +
   geom_line(aes(y=Predicted_separate), color='blue', lty='dashed') +
   geom_line(aes(y=Predicted_fixed), color='red', lty='dashed')
 
-print(fig4)
-
-#R: as it can be seen, the differences btw the mixed effects model and the non-hierarchical model are clearest for the EP3901 and EP432001
+fig4
 ```
+R: as it can be seen, the differences btw the mixed effects model and the non-hierarchical model are clearest for the EP3901 and EP432001
 
-```{r}
-##R: For the first attempt of exercises (Linear vs polynomials), according to the parameters observed, the polynomial analysis in model degree 2 offers a better adjusted r-squared (in comparison with the linear one and the polynomials analysis in higher degrees). 
-#Regarding the second part using LME and hierarchical methods, the mixed methods could be an appropiate option, once it is compared by shrinkage with the non-hierarchical models. 
-```
+R: For the first attempt of exercises (Linear vs polynomials), according to the parameters observed, the polynomial analysis in model degree 2 offers a better adjusted r-squared (in comparison with the linear one and the polynomials analysis in higher degrees). 
 
+Regarding the second part using LME and hierarchical methods, the mixed methods could be an appropiate option, once it is compared by shrinkage with the non-hierarchical models. 
