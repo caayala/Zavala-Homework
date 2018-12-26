@@ -1,3 +1,3 @@
 # Zavala-Homework
 
-Revisión de tarea 
+Revisión de tarea para curso de R. 
